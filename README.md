@@ -1,4 +1,4 @@
-# 스프링 학습 프로젝트
+# 스프링 5 프레임웍 학습 프로젝트
 
 초보 웹 개발자를 위한 스프링 5 프로그래밍 입문, 최범균 저
 
@@ -56,3 +56,20 @@ DI를 하는 이유는 변경의 유연함때문이다.
 - 조립기를 사용해도 의존의 의존을 쉽게 교체할 수 있다.
 
 ![](img/ch03-01.png)
+
+#### 스프링 설정을 이용한 DI
+- 설정용 클래스를 만들다 (e.g. `AppConf.java`).
+- 클래스 선언에 `@Configuration` annotation을 붙여 설정임을 명시
+- `@Configuration` 선언한 클래스의 각 메서드에 `@Bean` annotation을 붙여 Bean임을 명시
+- 스프링 컨테이너를 new up하고 `getBean()` 함수를 호출하여 Bean으로 조립 공식을 명시했던 객체를 구한다.
+
+```java
+ApplicationContext ctx = new AnnotationConfigApplicationContext(AppConf.class);
+Foo foo = ctx.getBean("foo", Foo.class);
+// getBean(name: String, type: String)
+```
+
+- 생성자 주입 vs 세터(setter) 주입
+- 스프링 컨테이너는 기본적으로 싱글톤으로 객체를 생성한다. `getBean()` 함수를 호출해 객체를 여러번 구하더라도 반환되는 객체는 호출할 때마다 다른 불변 객체가 아니라, 최초 한번 생성된 객체가 계속 반환된다.
+- `@Autowired` annotation을 의존 주입 대상에 붙이면 스프링 설정 클래스(e.g. `AppConf.java`)의 `@Bean` 메서드에서 의존 주입을 하지 않아도 자동 주입됨
+- 항상 스프링 DI, 즉 `@Bean`을 이용해서 의존 주입을 해야 하나? NO.
