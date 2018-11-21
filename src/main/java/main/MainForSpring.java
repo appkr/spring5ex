@@ -30,6 +30,15 @@ public class MainForSpring {
             } else if (command.startsWith("change ")) {
                 processChangeCommand(command.split(" "));
                 continue;
+            } else if (command.startsWith("list")) {
+                processListCommand();
+                continue;
+            } else if (command.startsWith("info ")) {
+                processInfoCommand(command.split(" "));
+                continue;
+            } else if (command.startsWith("version")) {
+                processVersionCommand();
+                continue;
             }
 
             printHelp();
@@ -78,12 +87,35 @@ public class MainForSpring {
         }
     }
 
+    private static void processListCommand() {
+        MemberListPrinter listPrinter = ctx.getBean("listPrinter", MemberListPrinter.class);
+        listPrinter.printAll();
+    }
+
+    private static void processInfoCommand(String[] arg) {
+        if (arg.length != 2) {
+            printHelp();
+            return;
+        }
+
+        MemberInfoPrinter infoPrinter = ctx.getBean("infoPrinter", MemberInfoPrinter.class);
+        infoPrinter.printMemberInfo(arg[1]);
+    }
+
+    private static void processVersionCommand() {
+        VersionPrinter versionPrinter = ctx.getBean("versionPrinter", VersionPrinter.class);
+        versionPrinter.print();
+    }
+
     private static void printHelp() {
         System.out.println();
         System.out.println("잘못된 명령어 입니다. 아래 명령어 사용법을 확인하세요.");
         System.out.println("  명령어 사용법:");
         System.out.println("  new    {email} {name} {password} {password_confimation}");
         System.out.println("  change {email} {current_password} {new_password}");
+        System.out.println("  info   {email}");
+        System.out.println("  list");
+        System.out.println("  version");
         System.out.println();
     }
 }
