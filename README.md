@@ -76,3 +76,39 @@ Foo foo = ctx.getBean("foo", Foo.class);
 
 ![](img/ch03-02.png)
 그림원본: https://docs.google.com/presentation/d/19irgFnDIMzhn34Q0n2BIusquKzra3VilYK9B-nqsaRQ/edit?usp=sharing
+
+--- 
+
+## ch04 의존 자동 주입
+
+- 의존 자동 주입이란? `@Autowired`
+- `@Autowired` 적용 가능 위치는? Field, Setter method
+- 의존 자동 주입을 했는데, 일치하는 Bean이 선언되어 있지 않은 경우? `NoSuchBeanDefinitionException`
+- Bean이 중복 선언되었고, 스프링이 하나를 선택할 수 없을 때? `NoUniqueBeanDefinitionException`
+- 스프링에게 힌트 제공하기 `@Qualifier`
+```java
+@Configuration
+public class AppCtx {
+    @Bean
+    @Qualifier("foo")
+    public Foo foo() {}    
+}
+
+public class SomeService {
+    @Autowired
+    @Qualifier("foo")
+    public void funcRequiresFoo() {}    
+}
+```
+- `@Qualifier` 적용 가능 위치는? Field, Setter method
+- 상속 그래프에 포함된 자식 객체일 때, 정확한 객체를 주입 받으려면?
+    - `@Qualifier`를 이용해서 Bean 이름을 명시하거나
+    - `@Autowired`선언된 필드 또는 함수의 매개 변수 타입을 하위 타입으로 명시
+- 의존 자동 주입이 되지 않아도 작동하는 로직일 때는? 
+    - `@Autowired(required = false)` 하거나
+    - 필드 또는 매개 변수의 타입을 `Optional<Foo> foo`로 선언하거나
+    - 필드 또는 매개 변수의 타입을 `@Nullable`로 선언
+- `@Autowired(required = false)`는 Setter 함수가 호출되지 않는 반면, Optional, Nullable은 호출됨 유의
+- 생성자에서 `@Autowired` 선언된 필드를 초기화했다면, 스프링이 의존 자동 주입을 다시 시도하므로 초기화된 필드값은 덮어써짐 유의
+
+> 자동 주입을 하는 코드와 수동으로 주입하는 코드가 섞여 있으면 주입을 제대로 하지 않아서 `NullPointerException`이 발생했을 때 원인을 찾는데 오랜 시간이 걸릴 수 있다. 의존 자동 주입을 사용한다면 일관되게 사용해야 이런 문제가 줄어든다. 의존 자동 주입을 사용하고 있다면 일부 자동 주입을 적용하기 어려운 코드를 제외한 나머지 코드는 의존 자동 주입을 사용하자. 
