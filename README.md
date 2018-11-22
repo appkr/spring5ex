@@ -73,3 +73,6 @@ Foo foo = ctx.getBean("foo", Foo.class);
 - 스프링 컨테이너는 기본적으로 싱글톤으로 객체를 생성한다. `getBean()` 함수를 호출해 객체를 여러번 구하더라도 반환되는 객체는 호출할 때마다 다른 불변 객체가 아니라, 최초 한번 생성된 객체가 계속 반환된다.
 - `@Autowired` annotation을 의존 주입 대상에 붙이면 스프링 설정 클래스(e.g. `AppConf.java`)의 `@Bean` 메서드에서 의존 주입을 하지 않아도 자동 주입됨
 - 항상 스프링 DI, 즉 `@Bean`을 이용해서 의존 주입을 해야 하나? NO.
+
+![](img/ch03-02.png)
+그림원본: https://docs.google.com/presentation/d/19irgFnDIMzhn34Q0n2BIusquKzra3VilYK9B-nqsaRQ/edit?usp=sharing
