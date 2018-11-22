@@ -112,3 +112,29 @@ public class SomeService {
 - 생성자에서 `@Autowired` 선언된 필드를 초기화했다면, 스프링이 의존 자동 주입을 다시 시도하므로 초기화된 필드값은 덮어써짐 유의
 
 > 자동 주입을 하는 코드와 수동으로 주입하는 코드가 섞여 있으면 주입을 제대로 하지 않아서 `NullPointerException`이 발생했을 때 원인을 찾는데 오랜 시간이 걸릴 수 있다. 의존 자동 주입을 사용한다면 일관되게 사용해야 이런 문제가 줄어든다. 의존 자동 주입을 사용하고 있다면 일부 자동 주입을 적용하기 어려운 코드를 제외한 나머지 코드는 의존 자동 주입을 사용하자. 
+
+---
+
+## ch 05 컴포넌트 스캔
+
+- 스프링이 직접 클래스를 검색해서 Bean으로 등록해 주는 기능
+    - 자동 Bean 등록할 클래스 선언 바로 위에 `@Component` annotation 추가
+    - 설정 클래스 선언 바로 위에 `@ComponentScan(basePackage = {"target package 1","target package 2"})` 추가
+- 별칭을 부여하려면? `@Component("foo")`
+- 별칭을 부여하지 않으면? 클래스 이름을 camelCase로 바꿔 Bean 이름으로 사용함. e.g. `class MemberDao` -> `memberDao`
+- 스캔 대상에서 제외하려면?
+```java
+@Configuration
+@ComponentScan(basePackage = {"foo"}, excludeFilters = @Filter(type = FilterType.REGEX, pattern = "foo\\..*Dao"))
+public class AppCtx { }
+```
+- 다른 필터?
+    - `excludeFilters = @Filter(type = FilterType.ASPECTJ, pattern = "foo.*Dao")`
+    - `excludeFilters = @Filter(type = FilterType.ANNOTATION, classes = {NoProduct.class, ManualBean.class})`
+    - `excludeFilters = @Filter(type = FilterType.ASSIGNABLE_TYPE, classes = MemberDao.class)` 자신 및 하위 타입 제외
+- 다른 스캔 대상? `@Controller`, `@Service`, `@Repository`, `@Aspect`, `@Controller`
+- Bean 이름 충돌?
+    - 자동 스캔 과정에 충돌이 발생하면, 둘 중에 하나에 이름을 명시
+    - 수동 등록한 Bean과 자동 스캔한 Bean 이름이 충돌하면, 수동 등록한 Bean 우선 사용
+
+---
