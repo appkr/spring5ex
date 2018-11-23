@@ -138,3 +138,163 @@ public class AppCtx { }
     - 수동 등록한 Bean과 자동 스캔한 Bean 이름이 충돌하면, 수동 등록한 Bean 우선 사용
 
 ---
+
+## ch 06 빈 라이프사이클과 범위
+```
+컨테이너 초기화                               컨테이너 종료
+<------------------------------------>    <--------> 
++--------+    +--------+    +--------+    +--------+ 
+| 객체생성 | -> | 의존설정 | -> |  초기화  | -> |  소멸   |  
++--------+    +--------+    +--------+    +--------+
+```
+```java
+// 컨테이너 초기화
+ApplicationContext ctx = new AnnotationConfigApplicationContext(AppCtx.class);
+foo = ctx.getBean("foo", Foo.class);
+// 컨테이너 종료
+ctx.close();
+```
+- 컨테이너가 초기화되면 컨테이너를 사용할 수 있다. 컨테이너를 사용한다는 것은 `getBean()`가 같은 메서드를 이용해서 컨테이너에 보관된 Bean 객체를 구한다는 것을 뜻한다.
+- Bean 객체의 생성과 소멸 시점에 추가적인 로직을 실행하고 싶다면, `InitializingBean`, `DisposableBean` 인터페이스를 구현한다. e.g. 데이터베이스 연결을 끊는다. 채팅을 위한 Tcp 커넥션을 끊는다.
+```java
+public class AClient implements InitializingBean, DisposableBean {
+    @Override
+    public void afterPropertiesSet() throws Exception {
+        // Hook here...
+    }
+    
+    @Override
+    public void destroy() throws Exception {
+        // Hook here...
+    }
+}
+```
+- 인터페이스를 구현하지 않고 커스텀 초기화 및 종료를 위한 메서드를 직접 정의하려면? `@Bean(initMethod = "..", destroyMethod = "..")`
+```java
+@Configuration
+public class AppCtx {
+    @Bean(initMethod = "connect", destroyMethod = "close")
+    public ExClient client() {
+        return new ExClient();
+    }    
+}
+```
+- Bean 객체의 라이프를 관리하려면? `@Scope("prototype")`
+```java
+@Configuration
+public class AppCtx {
+    @Bean
+    @Scope("prototype")
+    public AClient client() {
+        return new AClient();
+    }    
+}
+```
+> `주의` 프로토타입 범위의 Bean은 컨테이너의 완전한 라이프사이클을 따르지 않으므로, 직접 소멸 처리해줘야 함.
+
+---
+
+## ch07 AOP 프로그래밍
+- `pom.xml`에 `aspectjweaver` 의존 모듈 추가 필요
+- AOP, Aspect Oriented Programming? 여러 객체에 공통으로 적용할 수 있는 기능을 분리해서 재사용성을 높여주는 프로그래밍 기법. 핵심 기능(비즈니스 로직)에 공통 기능(로깅, 보안, 캐싱 등)을 삽입하는 것이 요체.
+- 기본 설정된 스프링에서는 "런타임에 프록시 객체를 생성해 공통 기능을 삽입하는 방법"만 제공
+- Aspect? 공통 기능
+
+용어|의미
+---|---
+Advice|"언제" 적용할 것인가? e.g. 메서드 호출전에
+JoinPoint|Advice를 적용 가능한 지점. e.g. 메서드 호출
+Pointcut|Advice가 적용되는 JoinPoint. 정규표현식 또는 AspectJ 문법 이용
+Weaving|Advice를 적용하는 행위
+Aspect|여러 객체에 적용되는 공통 기능. e.g. 트랜잭션 처리 등
+
+- Advice의 종류?
+
+종류|설명
+---|---
+Before|메서드 호출 전
+After Returning|예외 없이 메서드 실행된 후
+After Throwing|예외 발생했을 때
+After|메서드 실행 후(like finally)
+Around|메서드 실행 전, 후를 데코레이트
+
+- 적용법
+    - Aspect로 사용할 클래스에 `@Aspect` 선언
+    - 공통 기능을 적용할 `@Pointcut` 선언
+    - 공통 기능 구현 메서드에 `@Around` 선언
+    - 스프링 설정 클래스에 `@EnableAspectJAutoProxy` 선언하고, Aspect를 Bean으로 등록
+```java
+@Aspect
+public class ExeTimeAspect {
+    @Pointcut("execution(public * package..factorial(..))") // 패턴에 맞는 메서드를 호출하면 데코레이트
+    private void measureTarget() { }
+    
+    @Around("measureTarget()")
+    public Object measure(ProceedingJoinPoint joinPoint) throws Throwable {
+        try {
+            Object result = joinPoint.proceed();
+        } finally {
+            Signature sig = joinPoint.getSignature();
+            // sig.getName(); // e.g. factorial
+            // joinPoint.getTarget().getClass().getSimpleName(); // e.g. RecCalculator  
+            // Arrays.toString(joinPoint.getArgs()); // e.g. [5]
+        }
+    }
+}
+
+@Configuration
+@EnableAspectJAutoProxy
+public class AppCtx {
+    @Bean
+    public ExeTimeAspect exeTimeAspect() {
+        return new ExeTimeAspect();
+    }
+}
+```
+- Main 함수에서 `@Pointcut` 패턴과 일치하는 객체의 함수(e.g. `RecCalculator#factorial()`)를 실행하면, Aspect가 작동함. 이때 객체의 타입은 `com.sun.proxy.$Proxy17`과 같은 임시 생성 타입임. 즉, 런타임에 `Calculator`를 구현한 `$Proxy17` 객체를 생성하고 `RecCalculator`를 랩핑한 것임.
+```
++---------------+       +---------------+
+| <<interface>> | <|--- | RecCalculator |
+| Calculator    |       +---------------+
++---------------+       +---------------+
+| + factorial() | <|--- | $Proxy17      |
++---------------+       +---------------+
+```
+- 인터페이스를 사용하지 않으려면? `@EnableAspectAutoProxy(proxyTargetClass = true)`
+```java
+@Configuration
+@EnableAspectAutoProxy(proxyTargetClass = true)
+public class AppCtx { }
+```
+- `@Pointcut("execution(???)")` 용법
+    - `*` 와일드 카드 e.g. `set*`, `get*(*, *)`
+    - `..` 0개 이상 e.g. `root..*` root 패키지 및 하위의 모든 패키지
+```
+execution({visibility} {return type} {class name pattern} {method name pattern}(param pattern))
+```
+- Advice 적용 순서? `@Order(Integer)` 선언
+```java
+@Aspect
+@Order(1)
+public class FooAspect {}
+
+@Aspect
+@Order(2)
+public class BarAspect {}
+```
+- `@Around`에 execution 표현식을 직접 선언할 수도 있음. e.g. `@Around("execution(public * root..*(..))")`
+- `@Pointcut` 재사용
+```java
+public class CommonPointcut {
+    @Pointcut("execution(public * root..*(..))")
+    public void commonTarget() { }
+}
+
+@Aspect
+public class FooAspect {
+    @Around("CommonPointcut.commonTarget()")
+    public Object execute(ProceedingJoinPoint joinPoint) throws Throwable { }
+}
+```
+
+---
