@@ -2,6 +2,7 @@ package config;
 
 import aop.Calculator;
 import aop.RecCalculator;
+import aspect.CacheAspect;
 import aspect.ExeTimeAspect;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Bean;
@@ -12,6 +13,11 @@ import spring.*;
 @Configuration
 @EnableAspectJAutoProxy
 public class AppCtx {
+    @Bean
+    public CacheAspect cacheAspect() {
+        return new CacheAspect();
+    }
+
     @Bean
     public ExeTimeAspect exeTimeAspect() {
         return new ExeTimeAspect();
