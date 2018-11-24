@@ -298,3 +298,194 @@ public class FooAspect {
 ```
 
 ---
+
+## ch 08 DB 연동
+- `pom.xml`에 `spring-jdbc`, `tomcat-jdbc`, `mysql-connector-java` 의존 모듈 추가 필요
+- 회원 테이블 생성
+```sql
+CREATE USER 'spring5ex'@'localhost' IDENTIFIED BY 'secret';
+CREATE DATABASE spring5ex CHARACTER SET=utf8;
+GRANT PRIVILEGES ON spring5ex.* TO 'spring5ex'@'localhost';
+
+CREATE TABLE spring5ex.members (
+    id AUTO_INCREMENT PRIMARY KEY,
+    email VARCHAR(255),
+    password VARCHAR(100),
+    name VARCHAR(100),
+    regdate datetime,
+    UNIQUE KEY (email)
+) ENGINE=InnoDB CHARACTER SET=utf8;
+
+INSERT INTO member (email, password, name, regdate) VALUES ('foo@bar.com', '1234', 'Foo', NOW());
+```
+- 스프링이 제공하는 DB 연동 기능은 DataSource를 사용해서 DB Connection을 구한다. DB 연동에 사용할 DataSource를 스프링 Bean으로 등록하고 DB 연동 기능을 구현한 Bean 객체는 DataSource를 주입 받아서 사용한다
+```java
+@Configuration
+public class AppCtx {
+    @Bean(destroyMethod = "close")
+    public DataSource dataSource() {
+        DataSource ds = new DataSource();
+        ds.setDriverClassName("com.mysql.jdbc.Driver");
+        ds.setUrl("jdbs:mysql://localhost/spring5ex?characterEncoding=utf8");
+        ds.setUsername("spring5ex");
+        ds.setPassword("secret");
+        ds.setInitialSize(2); // 커넥션 풀의 커넥션 개수
+        ds.setMaxActive(10); // 커넥션 풀의 최대 커넥션 개수
+        return ds;
+    }
+
+    @Bean
+    public MemberDao memberDao() {
+        return new MemberDao(dataSource());
+    }
+}
+```
+- 커넥션 풀에 커넥션을 요청하면 해당 커넥션은 활성(active) 상태가 되고, 커넥션을 다시 커넥션 풀에 반환하면 유휴(idle) 상태가 된다.
+- `maxActive`를 10으로 지정하면 이는 커넥션 풀이 수용할 수 있는 동시 DB 커넥션이 10개라는 뜻이다. 현재 활성 커넥션이 10개인데 다시 커넥션을 요청하면 다른 커넥션이 반환될 때까지 대기한다. 이 대기 시간이 `maxWait`다. 대기 시간 내에 풀에 반환된 커넥션이 있으면 해당 커넥션을 구하게 되고, 대기 시간 내에 반환된 커넥션이 없으면 예외가 발생한다.
+
+#### 목록 조회 쿼리
+- `List<T> query(String sql, RowMapper<T> rowMapper)`
+- `List<T> query(String sql, Object[] args, RowMapper<T> rowMapper)`
+- `List<T> query(String sql, RowMapper<T> rowMapper, Object ...args)`
+
+```java
+public class MemberDao {
+    private static final String QUERY_SELECT_BY_EMAIL = "SELECT * FROM members WHERE email = ?";
+    private JdbcTemplate jdbcTemplate;
+
+    public MemberDao(DataSource dataSource) {
+        this.jdbcTemplate = new JdbcTemplate(dataSource);
+    }
+
+    public Member selectByEmail(String email) {
+        List<Member> results = jdbcTemplate.query(QUERY_SELECT_BY_EMAIL, new RowMapper<Member>() {
+            @Override
+            public Member mapRow(ResultSet rs, int rowNum) throws SQLException {
+                Member member = new Member(
+                    rs.getString("email"),
+                    rs.getString("password"),
+                    rs.getString("name"),
+                    rs.getTimestamp("regdate").toLocalDateTime()
+                );
+                member.setId(rs.getLong("id"));
+                return member;
+            }
+        }, email);
+
+        return results.isEmpty() ? null : results.get(0);
+    }
+}
+```
+
+#### 단일 행 조회 쿼리
+- `T queryForObject(String sql, Class<T> requiredType)`
+- `T queryForObject(String sql, Class<T> requiredType, Object ...args)`
+- `T queryForObject(String sql, RowMapper<T> rowMapper)`
+- `T queryForObject(String sql, RowMapper<T> rowMapper, Object ...args)`
+```java
+private static final String QUERY_COUNT = "SELECT COUNT(*) FROM members";
+
+public int count() {
+    Integer count = jdbcTemplate.queryForObject(QUERY_COUNT, Integer.class);
+    return count;
+}
+```
+- `queryForObject()` 메서드를 사용하려면 쿼리 실행 결과는 반드시 한 행이어야 한다. 만약 쿼리 실행 결과 행이 없거나 두 개 이상이면 `IncorrectRequltSizeDataAccessException`이 발생한다. 행의 개수가 0이면 하위 클래스인 `EmptyResultDataAccessException`이 발생한다. 따라서 결과 행이 정확하게 한 개가 아니면 `queryForMethod()` 메서드 대신 `query()` 메서드를 사용해야 한다.
+
+#### 변경 쿼리
+- `int update(String sql)`
+- `int update(String sql, Object ...args)`
+```java
+private static final String QUERY_UPDATE = "UPDATE members SET name = ?, password = ? WHERE email = ?";
+
+public void update(Member member) {
+    jdbcTemplate.update(QUERY_UPDATE, member.getName(), member.getPassword(), member.getEmail());
+}
+```
+
+#### PreparedStatement 사용
+- `List<T> query(PreparedStatementCreator psc, RowMapper<T> rowMapper)`
+- `int update(PreparedStatementCreator psc)`
+- `PreparedStatementCreator`를 구현한 클래스는 `createPreparedStatement()` 메서드의 파라미터로 전달받는 `Connection`을 이용해서 `PreparedStatement` 객체를 생성하고 인덱스 파라미터를 알맞게 설정한 뒤에 리턴하면 된다.
+```java
+private static final String QUERY_INSERT = "INSERT INTO members (email, password, name, regdate) VALUES (?, ?, ?, ?)";
+
+public void insert(final Member member) {
+    jdbcTemplate.update(new PreparedStetementCreator() {
+        @Override
+        public PreparedStatement createPreparedStatement(Connection con) throws SQLException {
+            PreparedStatement pstmt = con.parepareStatement(QUERY_INSERT);
+            pstmt.setString(1, member.getEmail());
+            pstmt.setString(2, member.getPassword());
+            pstmt.setString(3, member.getName());
+            pstmt.setTimestamp(4, Timestamp.valueOf(member.getRegisterDateTime()));
+            return psmt;
+        }
+    });
+}
+```
+
+#### 자동 생성 키 값 구하기
+- `int update(PreparedStatementCreator psc, KeyHolder generatedKeyHolder)`
+```java
+private static final String QUERY_INSERT = "INSERT INTO members (email, password, name, regdate) VALUES (?, ?, ?, ?)";
+
+public void insert(final Member member) {
+    KeyHolder = keyHolder = new GeneratedKeyHolder();
+    jdbcTemplate.update(new PreparedStetementCreator() {
+        @Override
+        public PreparedStatement createPreparedStatement(Connection con) throws SQLException {
+            PreparedStatement pstmt = con.parepareStatement(QUERY_INSERT, new String[]{"id"});
+            pstmt.setString(1, member.getEmail());
+            pstmt.setString(2, member.getPassword());
+            pstmt.setString(3, member.getName());
+            pstmt.setTimestamp(4, Timestamp.valueOf(member.getRegisterDateTime()));
+            return psmt;
+        }
+    }, keyHolder);
+    Number keyValue = keyHolder.getKey();
+    member.setId(keyValue.longValue());
+}
+```
+
+#### 예외 번역
+> `convertSqlToDataException()` 함수를 찾을 수 없음;;;
+
+- `RuntimeException` <- `DataAccessException` <- `BadSqlGrammerException`, `DuplicateKeyException`, `QueryTimeoutException`
+```java
+try {
+    // JDBC 코드
+} catch (SQLException e) {
+    throw convertSqlToDataException(e);
+}
+```
+
+#### 트랜잭션 처리
+- 트랜잭션 범위에서 실행할 함수 위에 `@Transactional` 선언 & 스프링 설정 클래스에 `@PlatformTransactionManager` Bean 설정
+```java
+@Configuration
+@EnableTransactionManagement
+public class AppCtx {
+    @Bean
+    public PlatformTransactionManager transactionManager() {
+        DataSourceTransactionManager tm = new DataSourceTransactionManager();
+        tm.setDataSource(dataSource());
+        return tm;
+    }
+}
+
+public class ChangePasswordService {
+    @Transactional
+    public void changePassword(String email, String oldPwd, String new Pwd) {
+        // ...
+    }
+}
+```
+- 스프링은 `@Transactional` annotation을 이용해서 트랜잭션을 처리하기 위해서 내부적으로 AOP를 사용한다.
+- 별도 설정을 추가하지 않으면 `RuntimeException`이 발생하면 트랜잭션을 롤백한다.
+
+#### 로깅 활성화
+- `pom.xml`에 `slf4j-api`, `logback-classic` 의존 모듈 추가 필요
+- `logback.xml` 추가 필요
+
+---
