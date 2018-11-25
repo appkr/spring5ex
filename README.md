@@ -489,3 +489,113 @@ public class ChangePasswordService {
 - `logback.xml` 추가 필요
 
 ---
+
+## ch 09 스프링 MVC 시작하기
+- 스프링 웹 MVC 프로젝트 폴더 구조
+```
+.
+├── pom.xml
+└── src/main
+    ├── java
+    │   ├── HelloController.java
+    │   └── config
+    │       ├── MvcConfig.java
+    │       └── ControllerConfig.java
+    └── webapp
+        └── WEB-INF
+            ├── web.xml
+            └── view
+                └── hello.jsp
+```
+
+#### 설정
+- `pom.xml`
+    - `<packaging>war</packaging>`
+    - javax.servlet-api 모듈
+    - javax.servlet.jsp-api 모듈
+    - jstl 모듈
+    - spring-mvc 모듈
+- 로컬 테스트를 위해 톰캣 또는 제티 서버 필요
+- 스프링 컨테이너 설정
+```java
+@Configuration
+@EnableWebMvc
+public class MvcConfig implements WebMvcConfigurer {
+    @Override
+    public void configureDefaultServletHandling(DefaultServletHandlerConfigurer configurer) {
+        configurer.enable();
+    }
+
+    @Override
+    public void configureViewResolvers(ViewResolverRegistry registry) {
+        retistry.jsp("/WEB-INF/view/", ".jsp");
+    }
+}
+```
+- `web.xml`
+    - `DispatcherServlet` 별칭 등록
+    - 스프링 설정 클래스의 타입 등록(`AnnotationConfigWebApplicationContext`)
+    - 스프링 설정 경로 등록
+    - 웹 요청을 등록한 `DispatcherServlet`이 처리하도록 맵핑 추가
+    - 요청 파라미터 인코딩 관련 서블릿 필터 등록
+
+#### tomcat 설정
+```bash
+$ brew install tomcat
+
+$ which catalina
+# /usr/local/bin/catalina
+
+$ catalina version
+# Using CATALINA_BASE:   /usr/local/Cellar/tomcat/9.0.13/libexec
+# Using CATALINA_HOME:   /usr/local/Cellar/tomcat/9.0.13/libexec
+# ...
+```
+![](/img/ch09.png)
+
+#### 컨트롤러 구현
+```java
+@Controller
+public class HelloController {
+    @GetMapping("/hello")
+    public String hello(Model model, @RequestParam(value = "foo", required = false) String foo) {
+        // model은 Request 객체이며, 아래 코드에서 greeting이란 속성을 동적으로 추가함.
+        model.addAttribute("greeting", "Hello " + foo);
+    }
+
+    // hello는 뷰 이름. /src/main/webapp/WEB-INF/view/hello.jsp
+    return "hello"; 
+}
+```
+- 컨텍스트 경로(`pom.xml` `<artifactId>here</artifactId>`)를 시작 위치로 URL 결정됨. 위 예제의 경우 `GET /here/hello`가 URL임.
+- 컨트롤러 Bean 등록
+```java
+// src/main/java/config/ControllerConfig.java
+@Configuration
+public class ControllerConfig {
+    @Bean
+    public HelloController helloController() {
+        return new HelloController();
+    }
+}
+```
+
+#### 뷰
+```html
+<%@ page contentTYpe="text/html; charset=utf-8"%>
+<!DOCTYPE html>
+...
+${greeting} <!-- // JSP Expression Language -->
+```
+
+#### 실행하기
+
+![](/img/ch09-01.png)
+
+![](/img/ch09-02.png)
+
+![](/img/ch09-03.png)
+
+![](/img/ch09-04.png)
+
+---
