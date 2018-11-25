@@ -28,38 +28,13 @@ public class MemberDao {
     }
 
     public Member selectByEmail(String email) {
-        List<Member> results = jdbcTemplate.query(QUERY_SELECT_BY_EMAIL, new RowMapper<Member>() {
-            @Override
-            public Member mapRow(ResultSet rs, int rowNum) throws SQLException {
-                Member member = new Member(
-                    rs.getString("email"),
-                    rs.getString("password"),
-                    rs.getString("name"),
-                    rs.getTimestamp("regdate").toLocalDateTime()
-                );
-                member.setId(rs.getLong("id"));
-                return member;
-            }
-        }, email);
+        List<Member> results = jdbcTemplate.query(QUERY_SELECT_BY_EMAIL, new MemberRowMapper(), email);
 
         return results.isEmpty() ? null : results.get(0);
     }
 
     public List<Member> selectAll() {
-        List<Member> results = jdbcTemplate.query(QUERY_SELECT_ALL, new RowMapper<Member>() {
-            @Override
-            public Member mapRow(ResultSet rs, int rowNum) throws SQLException {
-                Member member = new Member(
-                    rs.getString("email"),
-                    rs.getString("password"),
-                    rs.getString("name"),
-                    rs.getTimestamp("regdate").toLocalDateTime()
-                );
-                member.setId(rs.getLong("id"));
-                return member;
-            }
-        });
-
+        List<Member> results = jdbcTemplate.query(QUERY_SELECT_ALL, new MemberRowMapper());
         return results;
     }
 
