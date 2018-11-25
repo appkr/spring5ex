@@ -3,7 +3,7 @@ package spring;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 
-import java.util.Collection;
+import java.util.List;
 
 public class MemberListPrinter {
     private MemberDao memberDao;
@@ -12,7 +12,7 @@ public class MemberListPrinter {
     public MemberListPrinter() { }
 
     public void printAll() {
-        Collection<Member> members = memberDao.selectAll();
+        List<Member> members = memberDao.selectAll();
         members.forEach(m -> printer.print(m));
     }
 

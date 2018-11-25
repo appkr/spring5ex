@@ -1,6 +1,7 @@
 package spring;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 
@@ -10,6 +11,7 @@ public class MemberRegisterService {
 
     public MemberRegisterService() { }
 
+    @Transactional
     public Long regist(RegisterRequest req) {
         Member member = memberDao.selectByEmail(req.getEmail());
         if (member != null) {
