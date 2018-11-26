@@ -599,3 +599,69 @@ ${greeting} <!-- // JSP Expression Language -->
 ![](/img/ch09-04.png)
 
 ---
+
+## ch 10 스프링 MVC 프레임워크 동작 방식
+- 스프링 MVC의 핵심 구성 요소. = 박스된 2개는 개발자가 직접 구현해야 함
+```
++--------+    +-------------------+ 
+| Client |    | DispatcherServlet | 
++--------+    +-------------------+ 
+    | 1. Web Request    |
+    | ----------------> | 2. find matching 
+    |                   |    controller     +-----------------+ 
+    |                   | ----------------> | <<spring bean>> | 
+    |                   |                   | HandlerMapping  |
+    |                   |                   +-----------------+
+    |                   |                  
+    |                   | 3. delegate req   +-----------------+ 4. exec           +=================+
+    |                   | ----------------> | <<spring bean>> | ----------------> | <<spring bean>> |
+    |                   | <---------------- | HandlerAdapter  | <---------------- | Controller      |
+    |                   | 6. ModelAndView   +-----------------+ 5. return         +=================+
+    |                   |                   
+    |                   | 7. find View      +-----------------+
+    |                   | ----------------> | <<spring bean>> |
+    |                   | <---------------- | ViewResolver    |
+    |                   | 8. View           +-----------------+
+    |                   |
+    |                   | 9. Make Response  +=================+
+    |                   | ----------------> | JSP             |
+    | 10. Web Response  |                   +=================+
+    | <---------------- |
+```
+
+- `DispatcherServlet`은 스프링 컨테이너를 생성하고, 그 컨테이너로부터 필요한 Bean 객체를 구함
+```
++-------------------+ <<create>>  +-------------------------+
+| DispatcherServlet | ----------> | Spring Container        |
++-------------------+             | (WebApplicationContext) |
+          |                       | +---------------------+ |
+          |                       | | HandlerMapping      | |
+          |                       | +---------------------+ |
+          |                       | +---------------------+ |
+          | <<use>>               | | HandlerAdapter      | |
+          +---------------------> | +---------------------+ |
+                                  | +---------------------+ |
+                                  | | Controller Bean     | |
+                                  | +---------------------+ |
+                                  | +---------------------+ |
+                                  | | ViewResolver        | |
+                                  | +---------------------+ |
+                                  +-------------------------+
+```
+
+#### DefaultHandler와 HandlerMapping의 우선 순위
+- `@EnableWebMvc` 선언은 `RequestMappingHandlerMapping` Bean을 등록하며, `@Controller`, `@GetMapping("/foo")`로 정의한 컨트롤러 함수를 찾아서 웹 요청을 처리함
+- ch09의 설정에 따라 `.jsp`를 제외한 모든 요청, 예를 들어 `/index.html`이나 `/css/bootstrap.css`도 `DispatcherServlet`이 처리함.
+- 예로 든 정적 파일과 같이 경로와 컨트롤러간의 맵핑이 선언되지 않은 경우에는 `DefaultServletHandlerConfigurer#enable()`가 제공하는 두개의 Bean 객체를 통하여 웹 요청을 처리함
+    - `DefaultServletHttpRequestHandler`
+    - `SimpleUrlHandlerMapping`
+
+다시 정리하면,
+
+① `RequestMappingHandlerMapping`을 사용해서 요청을 처리할 핸들러를 검색한다.
+  - 존재하면 해당 컨트롤러를 이용해서 요청을 처리한다.
+
+② 존재하지 않으면 `SimpleUrlHandlerMapping`을 사용해서 요청을 처리할 핸들러를 검색한다.
+  - `DefaultServletHandlerConfigurer#enable()` 메서드가 등록한 `SimpleUrlHandlerMapping`은 "/**" 경로(즉 모든 경로)에 대해 `DefaultServletHttpRequestHandler`를 리턴한다.
+  - `DispatcherServlet`은 `DefaultServletHttpRequestHandler`에 처리를 요청한다.
+  - `DefaultServletHttpRequestHandler`는 디폴트 서블릿에 처리를 위임한다.
