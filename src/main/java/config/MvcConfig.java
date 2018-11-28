@@ -1,11 +1,9 @@
 package config;
 
-import controller.RegisterRequestValidator;
 import org.springframework.context.MessageSource;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.support.ResourceBundleMessageSource;
-import org.springframework.validation.Validator;
 import org.springframework.web.servlet.config.annotation.*;
 
 @Configuration
@@ -26,10 +24,12 @@ public class MvcConfig implements WebMvcConfigurer {
         registry.addViewController("/main").setViewName("main");
     }
 
-    @Override
-    public Validator getValidator() {
-        return new RegisterRequestValidator();
-    }
+// @EnableWebMvc를 선언하면 OptionalValidatorFactoryBean을 글로벌 Validator로 자동 등록함
+// 즉, 상위 클래스의 함수를 재정의할 필요가 없음
+//    @Override
+//    public Validator getValidator() {
+//        return new RegisterRequestValidator();
+//    }
 
     @Bean
     public MessageSource messageSource() {

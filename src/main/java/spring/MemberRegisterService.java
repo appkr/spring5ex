@@ -17,6 +17,9 @@ public class MemberRegisterService {
         if (member != null) {
             throw new DuplicateMemberException("dup email" + req.getEmail());
         }
+        if (req.isPasswordEqualToConfirmPassword() == false) {
+            throw new PasswordMismatchException();
+        }
 
         Member newMember = new Member(req.getEmail(), req.getPassword(), req.getName(), LocalDateTime.now());
         memberDao.insert(newMember);

@@ -9,6 +9,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import spring.DuplicateMemberException;
 import spring.MemberRegisterService;
+import spring.PasswordMismatchException;
 import spring.RegisterRequest;
 
 import javax.validation.Valid;
@@ -47,6 +48,9 @@ public class RegisterController {
             memberRegisterService.regist(regReq);
         } catch (DuplicateMemberException e) {
             errors.rejectValue("email", "duplicate");
+            return "register/step2";
+        } catch (PasswordMismatchException e) {
+            errors.rejectValue("confirmPassword", "nomatch");
             return "register/step2";
         }
 
