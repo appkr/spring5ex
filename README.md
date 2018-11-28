@@ -665,3 +665,110 @@ ${greeting} <!-- // JSP Expression Language -->
   - `DefaultServletHandlerConfigurer#enable()` 메서드가 등록한 `SimpleUrlHandlerMapping`은 "/**" 경로(즉 모든 경로)에 대해 `DefaultServletHttpRequestHandler`를 리턴한다.
   - `DispatcherServlet`은 `DefaultServletHttpRequestHandler`에 처리를 요청한다.
   - `DefaultServletHttpRequestHandler`는 디폴트 서블릿에 처리를 위임한다.
+
+---
+
+## ch11 MVC1: 요청 매핑, 커맨드 객체, 리다이렉트, 폼 태그, 모델
+
+> 대부분의 설정은 개발 초기에 완성된다. 따라서, 웹 애플리케이션을 개발한다는 것은 어떤 **1) 컨트롤러**를 이용해서 어떤 요청 경로를 처리할지 결정하고, 웹 브라우저가 전송한 요청에서 필요한 값을 구하고, 처리 결과를 **2) 뷰(JSP)**를 이용해서 보여주는 것이다.
+
+- 웹 애플리케이션 개발은 다음 코드를 작성하는 일
+    - 특정 요청 URL을 처리할 코드
+    - 처리 결과를 HTML과 같은 형식으로 응답하는 코드
+- 요청 매핑 annotation? 요청한 Url을 처리할 컨트롤러 함수를 매핑함
+    - `@RequestMapping("/foo")`
+    - `@GetMapping("/foo")`
+    - `@PostMapping("/foo")`
+    - `@PutMapping("/foo")`
+    - `@PatchMapping("/foo")`
+    - `@DeleteMapping("/foo")`
+- 요청 파라미터 접근? 
+    - `HttpServletRequest` 객체에 직접 접근하는 방식
+    - `@RequestParam` annotation을 이용하는 방식
+
+```java
+@Controller
+public class RegisterController {
+    @PostMapping("/foo")
+    public String someFunc(HttpServletRequest request) {
+        String param = request.getParameter("param");
+        // ...
+    }
+}
+```
+```java
+@Controller
+public class RegisterClass {
+    @PostMapping("/foo")
+    public String someFunc(@RequestParam(value = "param", required = false, defaultValue = "false") Boolean param) {
+        if (param == false) { }
+        // ...
+    }
+}
+```
+- 리다이렉트? `redirect:/path`
+```java
+@GetMapping("/foo2")
+public String foo2Func() {
+    return "redirect:/foo1"
+}
+```
+- 커맨드 객체를 이용하여 요청 매핑? 컨트롤러 함수의 파라미터로 DTO 객체를 선언하면(HTTP 요청과 DTO의 필드명이 일치해야 함), `HttpServletRequest#getParameter()` 함수를 이용하여 DTO를 셋팅하지 않아도 됨.
+```java
+private FooService fooSvc;
+
+@PostMapping("/foo")
+public String fooFunc(FooRequest fooReq) {
+    fooSvc.someFunc(fooReq);
+    // ...
+}
+```
+```html
+<p>${fooReq.property}</p>
+```
+- 커맨드 객체와 스프링 폼 연동
+```html
+<input type="text" name="property" value="${fooReq.property}">
+```
+- 컨트롤러 구현이 없는 경로 매핑
+```java
+@Configuration
+@EnableWebMvc
+public class MvcConfig implements WebMvcConfigurer {
+    @Override
+    public void addViewControllers(ViewControllerRegistry registry) {
+        registry.addViewController("/main").setViewName("main");
+    }
+}
+```
+- Model 객체를 통해 컨트롤러에서 뷰에 데이터 전달하기
+```java
+@Controller
+public class SurveyController {
+    @GetMapping("/survey")
+    public String form(Model model) {
+        List<Question> questions = createQuestions();
+        model.addAttribute("questions", questions);
+        return "survey";
+    }
+}
+```
+```html
+<!-- // survry.jsp -->
+<c:forEach var="q" items="${questions}" varStatus="status">
+</c:forEach>
+```
+- ModelAndView 객체 이용
+```java
+@Controller
+public class SurveyController {
+    @GetMapping("/survey")
+    public ModelAndView form() {
+        List<Question> questions = createQuestions();
+        ModelAndView = mav = new ModelAndView();
+        mav.addObject("questions", questions);
+        mav.setViewName("survey");
+        return mav;
+    }
+}
+```
