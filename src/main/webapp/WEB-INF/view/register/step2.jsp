@@ -1,28 +1,29 @@
+<%@ taglib prefix="spring" uri="http://www.springframework.org/tags" %>
 <%@ page contentType="text/html;charset=UTF-8" language="java" %>
 <html>
 <head>
-    <title>회원가입</title>
+    <title><spring:message code="member.register"/></title>
 </head>
 <body>
-    <h2>회원 정보 입력</h2>
+    <h2><spring:message code="member.info"/></h2>
     <form action="step3" method="post">
         <p>
-            <label for="email">이메일</label>
+            <label for="email"><spring:message code="email"/></label>
             <input id="email" type="text" name="email" value="${registerRequest.email}">
         </p>
         <p>
-            <label for="name">이름</label>
+            <label for="name"><spring:message code="name"/></label>
             <input id="name" type="text" name="name" value="${registerRequest.name}">
         </p>
         <p>
-            <label for="name">비밀번호</label>
+            <label for="name"><spring:message code="password"/></label>
             <input id="password" type="password" name="password">
         </p>
         <p>
-            <label for="name">비밀번호 확인</label>
+            <label for="name"><spring:message code="password.confirm"/></label>
             <input id="confirmPassword" type="password" name="confirmPassword">
         </p>
-        <input type="submit" value="다음 단계">
+        <input type="submit" value="<spring:message code="register.btn"/>">
     </form>
 </body>
 </html>
