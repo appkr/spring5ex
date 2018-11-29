@@ -1,5 +1,6 @@
 package config;
 
+import interceptor.AuthCheckInterceptor;
 import org.springframework.context.MessageSource;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -24,18 +25,22 @@ public class MvcConfig implements WebMvcConfigurer {
         registry.addViewController("/main").setViewName("main");
     }
 
-// @EnableWebMvc를 선언하면 OptionalValidatorFactoryBean을 글로벌 Validator로 자동 등록함
-// 즉, 상위 클래스의 함수를 재정의할 필요가 없음
-//    @Override
-//    public Validator getValidator() {
-//        return new RegisterRequestValidator();
-//    }
-
     @Bean
     public MessageSource messageSource() {
         ResourceBundleMessageSource ms = new ResourceBundleMessageSource();
         ms.setBasenames("message.label");
         ms.setDefaultEncoding("UTF-8");
         return ms;
+    }
+
+    @Bean
+    public AuthCheckInterceptor authCheckInterceptor() {
+        return new AuthCheckInterceptor();
+    }
+
+    @Override
+    public void addInterceptors(InterceptorRegistry registry) {
+        registry.addInterceptor(authCheckInterceptor())
+            .addPathPatterns("/edit/**");
     }
 }
