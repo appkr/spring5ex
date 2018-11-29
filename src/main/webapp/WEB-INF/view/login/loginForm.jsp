@@ -15,7 +15,7 @@
         </p>
         <p>
             <label><spring:message code="password" /></label>
-            <form:input path="password" />
+            <form:password path="password" />
             <form:errors path="password" />
         </p>
         <input type="submit" value="<spring:message code="login.btn" />">

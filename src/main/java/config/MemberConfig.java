@@ -48,7 +48,9 @@ public class MemberConfig {
 
     @Bean
     public ChangePasswordService changePwdSvc() {
-        return new ChangePasswordService();
+        ChangePasswordService pwdSvc = new ChangePasswordService();
+        pwdSvc.setMemberDao(memberDao());
+        return pwdSvc;
     }
 
     @Bean
