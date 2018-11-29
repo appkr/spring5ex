@@ -772,3 +772,182 @@ public class SurveyController {
     }
 }
 ```
+
+---
+
+## ch 12 MVC2: 메시지, 커맨드 객체 검증
+### 메시지
+- 적용법
+    - 문자열을 담을 파일을 준비한다.
+    - 메시지 파일에서 값을 읽어오는 `MessageSource` Bean 을 설정한다.
+    - JSP 코드에서 `<spring:message>` 태크를 이용해서 메시지를 출력한다.
+```bash
+# src/main/resources/message/label.properties
+email=이메일
+password.confirm=비밀번호 확인
+register.done=<strong>{0}님</strong>, 환영합니다.
+```
+```java
+@Configuration
+@EnableWebMvc
+public class MvcConfig implements WebMvcConfigurer {
+    @Bean
+    public class MessageSource messageSource() {
+        ResourceBundleMessageSource ms = new ResourceBundleMessageSource();
+        ms.setBasenames("message.label");
+        ms.setDefaultEncoding("UTF-8");
+        return ms;
+    }
+}
+```
+```html
+<%@ taglib prefix="spring" uri="http://www.springframework.org/tags" %>
+<label><spring:message code="email" /></label>
+<p><spring:message code="register.done" arguments="${registerRequest.name}" /></p>
+```
+
+### 커맨드 객체 유효성 검증
+#### `Validator#validate()` 함수를 호출하는 방법
+- 적용법
+    - `Validator` 클래스를 구현한다.
+    - 컨트롤러에서 `Validator#validate()` 함수를 호출한다.
+    - 메시지 파일에 에러코드에 따라 출력할 문자열을 정의한다.
+    - JSP 코드에서 `<form:errors>` 태크를 이용해서 메시지를 출력한다.
+```java
+public class RegisterRequestValidator implements Validator {
+    @Override
+    public boolean supports(Class<?> aClass) {
+        // aClass 객체가 RegisterRequest 타입으로 변환 가능한지 확인
+        return RegisterRequest.class.isAssignableFrom(aClass);
+    }
+
+    @Override
+    public void validate(Object o, Errors errors) {
+        RegisterRequest regReq =. (RegisterRequest) o;
+        if (regReq.getEmail() == null) {
+            errors.rejectValue("email", "required");
+        }
+        ValidationUtils.rejectIfEmptyOrWhitespace(errors, "name", "required");
+        ValidationUtils.rejectIfEmpty(errors, "password", "required");
+    }
+}
+```
+```java
+@Controller
+public class RegisterController {
+    @PostMapping(..)
+    pulbic String register(RegisterRequest regReq, Errors errors) {
+        (new RegisterRequestValidator()).validate(regReq, errors);
+        if (errors.hasError()) {
+            // return or throw
+        }
+    }
+}
+```
+```bash
+# src/main/resources/message/label.properties
+required=필수 항목입니다.
+required.name=이름은 필수 항목입니다.
+```
+```html
+<%@ taglib prefix="form" uri=""http://www.springframework.org/tags/form %>
+<%@ taglib prefix="spring" uri=""http://www.springframework.org/tags %>
+<form:form>
+<form:input path="email" />
+<form:errors path="email" />
+</form:form>
+```
+- `Errors`
+    - `reject(String errorCode, Object[] errorArgs, String defaultMessage)` // 커맨드 객체 자체가 유효하지 않을 때
+    - `rejectValue(String field, String errorCode, Object[] errorArgs, String defaultMessage)`
+- `ValidationUtils`
+    - `rejectIfEmpty(Errors errors, String field, String errorCode, Object[] errorArgs)`
+    - `rejectIfEmptyOrWhitespace(Errors errors, String field, String errorCode, Object[] errorArgs)`
+- 에러 메시지 적용 우선 순위
+    - `required.registerRequest.email`
+    - `required.email`
+    - `required.String`
+    - `required`
+
+#### 전역 범위 Validator를 이용하는 방법
+- 적용법
+    - 설정 클래스에서 `WebMvcConfigurer#getValidator()` 메서드가 `Validator` 구현 객체를 리턴하도록 구현
+    - 전역 범위 `Validator`가 검증할 커맨드 객체에 `@Valid` annotation 적용
+```java
+@Configuration
+@EnableWebMvc
+public class MvcConfig implements WebMvcConfigurer {
+    @Override
+    public Validator getValidator() {
+        return new RegisterRequestValidator();
+    }
+}
+```
+```java
+@Controller
+public class RegisterController {
+    @PostMapping(..)
+    public String register(@Valid RegisterRequest regReq, Errors errors) {
+        // Validator.validate() 함수 호출하지 않음
+        if (errors.hasError()) {
+            // return or throw
+        }
+    }
+}
+```
+
+#### Bean Validation을 이용하는 방법
+- 적용법
+    - 의존 모듈 추가
+    - 커맨드 클래스에 검증 annotation 추가
+    - 검증할 커맨드 객체에 `@Valid` annotation 적용
+    - (선택) 메시지 파일에 에러코드에 따라 출력할 커스텀 문자열을 정의한다.
+- `주의` Bean Validation을 이용할 때는 `WebMvcConfigurer#getValidator()`를 Override하면 안됨. 왜냐하면, `@EnableWebMvc` annotation이 `OptionalValidatorFactoryBean`을 전역 Validator로 자동 등록하므로.
+```xml
+<dependency>
+  <groupId>javax.validation</groupId>
+  <artifactId>validation-api</artifactId>
+  <version>1.1.0.Final</version>
+</dependency>
+
+<dependency>
+  <groupId>org.hibernate</groupId>
+  <artifactId>hibernate-validator</artifactId>
+  <version>5.4.2.Final</version>
+</dependency>
+```
+```java
+public class RegisterRequest {
+    @NotBlank
+    @Email
+    private String email;
+    @Size(min = 6)
+    private String password;
+}
+```
+```java
+@Controller
+public class RegisterController {
+    @PostMapping(..)
+    public String register(@Valid RegisterRequest regReq, Errors errors) {
+        // Validator.validate() 함수 호출하지 않음
+        if (errors.hasError()) {
+            // return or throw
+        }
+    }
+}
+```
+```bash
+NotBlank=필수 항목입니다. 공백 문자는 허용하지 않습니다.
+Email=올바른 이메일 주소를 입력해야 합니다.
+Size.password=암호 길이는 6자 이상이어야 합니다.
+```
+- 에러 메시지 적용 우선 순위
+    - `NotBlank.registerRequest.email`
+    - `NotBlank.email`
+    - `NotBlank`
+- Bean Validation의 주요 annotation? `@AssertTrue`, `@AssertFalse`, `@DecimalMax`, `@DecimalMin`, `@Max`, `@Min`, `@Digits`, `@Size`, `@Null`, `@NotNull`, `@Pattern`
+- `주의` `NotNull`을 제외한 나머지 annotation은 검사 대상 값이 null이면 유효한 것으로 판단함
+- `참고` Bean Validation 2.0
+
+---
