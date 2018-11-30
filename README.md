@@ -951,3 +951,103 @@ Size.password=암호 길이는 6자 이상이어야 합니다.
 - `참고` Bean Validation 2.0
 
 ---
+
+## ch13 MVC3: 세션, 인터셉터, 쿠키
+#### 세션
+- 사용법 두 가지
+    - 요청 매핑을 적용한 컨트롤러 메서드에 `HttpSession` 파라미터를 추가한다.
+    - 요청 매핑을 적용한 컨트롤러 메서드에 `HttpServletRequest` 파라미터를 추가하고, `HttpServletRequest#getSession()` 함수를 이용한다.
+    - 첫 번째 방법은 항상 `HttpSession`을 사용하지만 두 번째 방법은 `getSession()`함수를 호출했을 때만 `HttpSession` 객체를 생성한다.
+```java
+@PostMapping
+public String form(LoginCommand loginCommand, Errors errors, HttpSession session) { }
+```
+```java
+@PostMapping
+public String foo(LoginCommand loginCommnad, Errors errors, HttpServletRequest req) {
+    HttpSession session = req.getSession();
+    session.setAttribute("foo", foo); // 세션 데이터 저장
+    Foo foo = (Foo) session.getAttribute("foo"); // 세션 데이터 조회
+    session.invalidate(); // 세션 삭제
+}
+```
+
+#### 인터셉터
+프레임워크|기능
+---|---
+Spring|`Interceptor`, `HandlerInterceptor`
+Laravel|`Middleware`, `HttpMiddleware`
+
+호출 시점|Spring|Laravel
+---|---|---
+컨트롤러(핸들러) 실행 전|`preHandle`|Before Middleware
+컨트롤러(핸들러) 실행 후, 뷰 렌더링 전|`postHandle`|After Middleware
+뷰를 실행한 후|`afterCompletion`|Terminable Middleware
+
+- 적용법
+    - `HanlderInterceptor`를 구현한 인터셉터 클래스 구현
+    - 스프링 설정 파일에 `WebMvcConfigurer#addInterceptors()` 재정의한 함수 구현
+```java
+public class AuthCheckInterceptor implements HandlerInterceptor {
+    @Override
+    public boolean preHandle(HttpServletRequest req, HttpServletResponse resp, Object handler) throes Exception {
+        resp.sendRedirect(req.getContextPath() + "/login"); // 로그인 페이지로 돌려보내는 예
+        // 검사 로직 수행 및 Boolean 반환
+    }
+}
+```
+```java
+@Configuration
+@EnableWebMvc
+public class MvcConfig implements WebMvcConfigurer {
+    @Bean
+    public AuthCheckInterceptor authCheckInterceptor() {
+        return new AuthCheckInterceptor();
+    }
+
+    @Override
+    public void addInterceptors(InterceptorRegistry registry) {
+        registry.addInterceptor(authCheckInterceptor())
+            .addPathPatterns("/edit/**")
+            // 제외할 Ant 패턴 추가
+            .excludePathPatterns("/edit/help/**");
+    }
+}
+```
+- `HandlerInterceptor` 인터페이스
+    - `boolean preHandle(HttpServletRequest req, HttpServletResponse resp, Object handler) throws Exception`
+    - `void postHandle(HttpServletRequest req, HttpServletResponse resp, Object handler, ModelAndView mav) throws Exception`
+    - `void afterCompletion(HttpServletRequest req, HttpServletResponse resp, Object handler, Exception e) throws Exception`
+
+#### 쿠키
+- 사용법? 
+    - 요청 매핑을 적용한 컨트롤러 메서드에 `@CookieValue` annotation 파라미터 적용하여 `Cookie` 객체를 구하여 쿠키 값에 접근할 수 있음
+    - `HttpServletResponse#addCookie()` 메서드를 이용해서 응답 헤더에 쿠키를 내보낼 수 있음
+```java
+@Controller
+@RequestMapping("/login")
+public class LoginController {
+    @GetMapping
+    public String form(LoginCommand loginCommand,
+                       @CookieValue(value = "REMEMBER", required = false) Cookie rCookie) {
+        if (rCookie != null) {
+            // 커맨드 객체에 쿠키에서 읽은 값을 셋팅해서 뷰 렌더링
+            loginCommand.setEmail(rCookie.getValue());
+            loginCommand.setRememberEmail(true);
+        }
+        return "login/loginForm";
+    }
+
+    @PostMapping
+    public String submit(LoginCommand loginCommand, Errors errors, HttpSession session, HttpServletResponse response) {
+        Cookie rememberCookie = new Cookie("REMEMBER", loginCommand.getEmail());
+        rememberCookie.setPath("/");
+        // Set-Cookie 응답 헤더 전송
+        rememberCookie.setMaxAge(60 * 60 * 24 * 30); // 30 days
+        response.addCookie(rememberCookie);
+        return "login/loginSuccess";
+    }
+}
+```
+
+---
