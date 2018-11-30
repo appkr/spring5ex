@@ -12,6 +12,7 @@ import java.util.List;
 
 public class MemberDao {
     private static final String QUERY_COUNT = "SELECT count(*) FROM members";
+    private static final String QUERY_SELECT_BY_ID = "SELECT * FROM members WHERE id = ?";
     private static final String QUERY_SELECT_BY_EMAIL = "SELECT * FROM members WHERE email = ?";
     private static final String QUERY_SELECT_BY_REGDATE = "SELECT * FROM members WHERE regdate >= ? AND regdate < ?";
     private static final String QUERY_SELECT_ALL = "SELECT * FROM members";
@@ -26,6 +27,11 @@ public class MemberDao {
 
     public int count() {
         return jdbcTemplate.queryForObject(QUERY_COUNT, Integer.class);
+    }
+
+    public Member selectById(Long memId) {
+        List<Member> results = jdbcTemplate.query(QUERY_SELECT_BY_ID, new MemberRowMapper(), memId);
+        return results.isEmpty() ? null : results.get(0);
     }
 
     public Member selectByEmail(String email) {
