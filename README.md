@@ -1051,3 +1051,74 @@ public class LoginController {
 ```
 
 ---
+
+## MVC4: 날짜 값 변환, @PathVariable, 예외 처리
+#### 날짜 값 변환
+- `Long`, `int`등의 기본 데이터 타입 변환은 스프링이 처리해주지만, `LocalDateTime`은 직접 설정해줘야 함
+```java
+public class ListCommand {
+    @DateTimeFormat(pattern = "yyyyMMdd")
+    private LocalDateTime from;
+    // ...
+}
+```
+- JSTL이 제공하는 날짜 태그는 `LocalDateTime` 형식을 처리하지 못하므로, 애플리케이션에서 뷰로 날짜 형식 데이터를 내 보낼때는 커스텀 태그를 선언해야 함.
+```jsp
+<!-- // src/main/webapp/WEB-INF/tags/formatDateTime.tag -->
+<%@ tag body-content="empty" pageEncoding="utf-8" %>
+<%@ tag import="java.time.format.DateTimeFormatter" %>
+<%@ tag trimDirectiveWhitespaces="true" %>
+<%@ attribute name="value" required="true" type="java.time.temporal.TemporalAccessor" %>
+<%@ attribute name="pattern" type="java.lang.String" %>
+<%
+    if (pattern == null) pattern = "yyyy-MM-dd";
+%>
+<%= DateTimeFormatter.ofPattern(pattern).format(value) %>
+```
+```html
+<%@ page contentType="text/html;charset=UTF-8" language="java" %>
+<%@ taglib prefix="c" uri="http://java.sun.com/jsp/jstl/core" %>
+<%@ taglib prefix="form" uri="http://www.springframework.org/tags/form" %>
+<%@ taglib prefix="tf" tagdir="/WEB-INF/tags" %>
+<!-- // ... -->
+<td>
+    <tf:formatDateTime value="${mem.regDateTime}" pattern="yyyy-MM-dd" />
+</td>
+```
+
+> `WebDataBinder`가 날짜 형식의 문자열을`LocalDateTime` 형식으로 변경해준다. `WebDataBinder`는 `ConversionService`에 날짜 형식 변경을 위임하며, `@EnableWebMvc` 설정이 `DefaultFormattingConversionService` 구현체를 바인딩한다.
+
+#### @PathVariable
+```java
+@GetMapping("/members/{id}")
+public String detail(@PathVariable("id") Long memberId, Model model) { }
+```
+
+#### 예외 처리
+- 컨트롤러 단위 예외 처리
+```java
+@Controller
+public class MemberDetailController {
+    @GetMapping("/members/{id}")
+    public String detail(@PathVariable("id") Long memberId, Model model) { }
+
+    @ExceptionHandler(MemberNotFoundException.class)
+    public String handleNotFoundException(MemberNotFoundException e) {
+        // 로깅 등
+        return "member/noMembmer";
+    }
+}
+```
+- 전역 예외 처리, 구현후 Bean 등록 필요
+```java
+@ControllerAdvice("spring")
+public class CommonExceptionHandler {
+    @ExceptionHandler(RuntimeException.class)
+    public String handleRuntimeException() {
+        return "error/commonException";
+    }
+}
+```
+- 컨트롤러 단위 예외 처리기 -> 전역 예외 처리기 순으로 적용됨
+
+---
