@@ -24,8 +24,7 @@ public class RestMemberController {
     public ResponseEntity<Object> member(@PathVariable Long id) throws IOException {
         Member member = memberDao.selectById(id);
         if (member == null) {
-            return ResponseEntity.status(HttpStatus.NOT_FOUND)
-                .body(new ErrorResponse("no member"));
+            throw new MemberNotFoundException();
         }
 
         return ResponseEntity.status(HttpStatus.OK).body(member);
@@ -41,6 +40,13 @@ public class RestMemberController {
             response.sendError(HttpServletResponse.SC_CONFLICT);
         }
     }
+
+//    @ExceptionHandler(MemberNotFoundException.class)
+//    public ResponseEntity<ErrorResponse> handleMemberNotFoundException() {
+//        return ResponseEntity
+//            .status(HttpStatus.NOT_FOUND)
+//            .body(new ErrorResponse("no member"));
+//    }
 
     public void setMemberDao(MemberDao memberDao) {
         this.memberDao = memberDao;

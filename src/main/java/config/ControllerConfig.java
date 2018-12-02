@@ -73,4 +73,9 @@ public class ControllerConfig {
         controller.setRegisterService(memberRegSvc);
         return controller;
     }
+
+    @Bean
+    public ApiExceptionAdvice apiExceptionAdvice() {
+        return new ApiExceptionAdvice();
+    }
 }
