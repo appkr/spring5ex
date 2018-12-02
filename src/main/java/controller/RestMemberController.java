@@ -2,13 +2,15 @@ package controller;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.validation.Errors;
 import org.springframework.web.bind.annotation.*;
 import spring.*;
 
-import javax.servlet.http.HttpServletResponse;
 import javax.validation.Valid;
 import java.io.IOException;
+import java.net.URI;
 import java.util.List;
+import java.util.stream.Collectors;
 
 @RestController
 public class RestMemberController {
@@ -31,22 +33,26 @@ public class RestMemberController {
     }
 
     @PostMapping("/api/members")
-    public void newMember(@RequestBody @Valid RegisterRequest regReq, HttpServletResponse response) throws IOException {
+    public ResponseEntity<Object> newMember(@RequestBody @Valid RegisterRequest regReq, Errors errors) throws IOException {
+        if (errors.hasErrors()) {
+            String errorCode = errors.getAllErrors()
+                .stream()
+                .map(error -> error.getCodes()[0])
+                .collect(Collectors.joining(","));
+
+            return ResponseEntity
+                .status(HttpStatus.BAD_REQUEST)
+                .body(new ErrorResponse("errorCodes = " + errorCode));
+        }
+
         try {
             Long newMemberId = registerService.regist(regReq);
-            response.setHeader("Location", "/api/members/" + newMemberId);
-            response.setStatus(HttpServletResponse.SC_CREATED);
+            URI uri = URI.create("/api/members/" + newMemberId);
+            return ResponseEntity.created(uri).build();
         } catch (DuplicateMemberException e) {
-            response.sendError(HttpServletResponse.SC_CONFLICT);
+            return ResponseEntity.status(HttpStatus.CONFLICT).build();
         }
     }
-
-//    @ExceptionHandler(MemberNotFoundException.class)
-//    public ResponseEntity<ErrorResponse> handleMemberNotFoundException() {
-//        return ResponseEntity
-//            .status(HttpStatus.NOT_FOUND)
-//            .body(new ErrorResponse("no member"));
-//    }
 
     public void setMemberDao(MemberDao memberDao) {
         this.memberDao = memberDao;
