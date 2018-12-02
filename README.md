@@ -1177,3 +1177,95 @@ public String register(RegisterCommand registerCommand, Errors errors) {
 > 웹 애플리케이션이 복잡해지고 커지면서 코드도 함께 복잡해지는 문제를 완화하는 방법 중 하나는 도메인 주도 설계를 적용하는 것이다. **도메인 주도 설계는 컨트롤러-서비스-DAO 구조 대신에 UI-서비스-도메인-인프라의 네 영역으로 애플리케이션을 구성한다**. 여기서 UI는 컨트롤러 영역에 대응하고 인프라는 DAO 영역에 대응한다. **중요한 점은 주요한 도메인 모델과 업무 로직이 서비스 영역이 아닌 도메인 영역에 위치한다는 것이다**. 또한 도메인 영역은 정해진 패턴에 따라 모델을 구현한다. 이를 통해 업무가 복잡해져도 일정 수준의 복잡도로 코드를 유지할 수 있도록 해 준다.
 
 ---
+
+## ch16 JSON 응답과 처리
+- Jackson 의존 모듈 추가
+```bash
++----------+       +---------+       +----------+
+| JSON Obj | <---> | Jackson | <---> | Java Obj |
++----------+       +---------+       +----------+
+```
+- `@RestController`로 JSON 응답, Bean 등록 필수
+```java
+@RestController
+public class RestMemberController {
+    @GetMapping("/api/members")
+    public List<Member> members() {
+        return memberDao.selectAll();
+    }
+}
+```
+- JSON 응답에서 제외할 필드는 `@JsonIgnore` 선언
+```java
+public class Member {
+    @JsonIgnore
+    private String password;
+}
+```
+- ISO_8601 날짜 형식 응답
+```java
+public class Member {
+    @JsonFormat(shape = Shape.STRING)
+    private LocalDateTime regDateTime;
+}
+```
+
+> 스프링 MVC는 자바 객체를 HTTP 응답으로 변환할 때 `HttpMessageConverter` 인터페이스를 이용한다. Jackson을 사용할 때는 `MappingJackson2HttpMessageConverter` 구현체를 사용한다.
+
+- 모든 날짜 필드에 `JsonDate`를 선언할 수 없으므로, 스프링 설정에 전역 설정을 등록하는 것이 편리하다.
+```java
+@Configuration
+@EnableWebMvc
+public class MvcConfig implements WebMvcConfigurer {
+    @Override
+    public void extendMessageConverters(List<HttpMessageConverter<?>> converters) {
+        ObjectMapper objectMapper = Jackson2ObjectMapperBuilder
+            .json()
+            .featuresToDisable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS)
+            .build();
+        // 새로 만든 HttpMessageConverter 객체를 0번 인덱스로 추가
+        converters.add(0, new MappingJackson2HttpMessageConverter(objectMapper));
+    }
+}
+```
+
+- `@RequestBody`로 JSON 요청 매핑
+```java
+@RestController
+public class RestMemberController {
+    public void newMember(@RequestBody @Valid RegisterRequest regReq, HttpServletResponse response) throws IOException {
+        // response.setHeader("key", "value");
+        // response.setStatus(HttpServletResponse.OK);
+    }
+}
+```
+- 요청 객체 검증
+```java
+@RestController
+public class RestMemberController {
+    public void newMember(@RequestBody @Valid RegisterRequest regReq, Errors errors, HttpServletResponse response) throws IOException {
+        // response.sendError(HttpServletResponse.BAD_REQUEST);
+    }
+}
+```
+- `ResponseEntity`로 객체와 응답 코드 돌려주기
+```java
+// ErrorResponse는 message 필드만 있는 데이터 객체
+@RestController
+public class RestMemberController {
+    @GetMapping("/api/members/{id}")
+    public ResponseEntity<Object> member(@PathVariable Long id) {
+        Member member = memberDao.selectById(id);
+        if (member == null) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                .body(new ErrorResponse("no member"));
+        }
+
+        return ResponseEntity.status(HttpStatus.OK).body(member);
+    }
+}
+```
+
+> 스프링 MVC는 리턴 타입이 `ResponseEntity`이면 ResponseEntity#body에 담긴 객체를 JSON으로 변환한다.
+
+---
