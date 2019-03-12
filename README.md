@@ -4,6 +4,8 @@
 
 ## ch 02 스프링 시작하기
 
+org.springframework.spring-context
+
 #### mvn
 ```bash
 $ mvn compile
@@ -27,6 +29,18 @@ Role|Spring|Laravel
 - `GenericGroovyApplicationContext`
 
 #### 예제
+
+```java
+@Configuration
+public class AppContext {
+    @Bean
+    public Greeter greeter() {
+        Greeter g = new Greeter();
+        g.setFormat("%s, 안녕하세요?");
+        return g;
+    }
+}
+```
 
 ```
 +--------------------+
@@ -52,12 +66,26 @@ Role|Spring|Laravel
 DI를 하는 이유는 변경의 유연함때문이다.
 
 #### 조립기를 이용한 DI
-- 조립기를 new up하면 하위 객체들도 모두 생성된다.
+- 조립기를 new up하면 하위 객체들도 모두 생성된다. (조립기 = 여러 객체를 담고 있는 일종의 컨테이너)
 - 조립기를 사용해도 의존의 의존을 쉽게 교체할 수 있다.
+
+```java
+public class Assembler {
+    public Assembler() {
+        memberDao = new MemberDao();
+        regSvc = new MemberRegisterService(memberDao);
+        pwdSvc = new ChangePasswordService();
+        pwdSvc.setMemberDao(memberDao);
+    }
+}
+```
 
 ![](img/ch03-01.png)
 
 #### 스프링 설정을 이용한 DI
+
+스프링 컨테이너(`ApplicationContext`)도 결국은 객체를 담고 있는 컨테이너이며, 애플리케이션 부트 시점에 `@Configuration`, `@Bean` 등의 설정이 붙은 클래스를 객체를 자동 생성한다는 점만 조립기와 다름 
+
 - 설정용 클래스를 만들다 (e.g. `AppConf.java`).
 - 클래스 선언에 `@Configuration` annotation을 붙여 설정임을 명시
 - `@Configuration` 선언한 클래스의 각 메서드에 `@Bean` annotation을 붙여 Bean임을 명시
@@ -491,6 +519,9 @@ public class ChangePasswordService {
 ---
 
 ## ch 09 스프링 MVC 시작하기
+
+스프링 = DI 컨테이너, MVC = 스프링 + 웹
+
 - 스프링 웹 MVC 프로젝트 폴더 구조
 ```
 .
@@ -601,7 +632,7 @@ ${greeting} <!-- // JSP Expression Language -->
 ---
 
 ## ch 10 스프링 MVC 프레임워크 동작 방식
-- 스프링 MVC의 핵심 구성 요소. = 박스된 2개는 개발자가 직접 구현해야 함
+- 스프링 MVC의 핵심 구성 요소. (=)로 그린 박스 2개는 개발자가 직접 구현해야 함
 ```
 +--------+    +-------------------+ 
 | Client |    | DispatcherServlet | 
@@ -765,7 +796,7 @@ public class SurveyController {
     @GetMapping("/survey")
     public ModelAndView form() {
         List<Question> questions = createQuestions();
-        ModelAndView = mav = new ModelAndView();
+        ModelAndView mav = new ModelAndView();
         mav.addObject("questions", questions);
         mav.setViewName("survey");
         return mav;
@@ -990,7 +1021,7 @@ Laravel|`Middleware`, `HttpMiddleware`
 ```java
 public class AuthCheckInterceptor implements HandlerInterceptor {
     @Override
-    public boolean preHandle(HttpServletRequest req, HttpServletResponse resp, Object handler) throes Exception {
+    public boolean preHandle(HttpServletRequest req, HttpServletResponse resp, Object handler) throws Exception {
         resp.sendRedirect(req.getContextPath() + "/login"); // 로그인 페이지로 돌려보내는 예
         // 검사 로직 수행 및 Boolean 반환
     }
@@ -1172,7 +1203,7 @@ public String register(RegisterCommand registerCommand, Errors errors) {
     - DAO
     - 모델
 
-> 컨트롤러-서비스-DAO 구조는 간단한 웹 애플리케이션을 개발하기에는 무리가 없다. 문제는 애플리케이션이 기능이 많아지고 로직이 추가되기 시작할 때 발생한다. 로직이 복잡해지면 컬트롤러-서비스-DAO 구조의 코드도 함께 복잡해지는 경향이 있따. 특정 기능을 분석할 때 시간이 오래 걸리기도 하고, **중요한 로직을 구현한 코드가 DAO, 서비스 등에 흩어지기도 한다. 또한 중복된 쿼리나 중복된 로직 코드가 늘어나기도 한다**.
+> 컨트롤러-서비스-DAO 구조는 간단한 웹 애플리케이션을 개발하기에는 무리가 없다. 문제는 애플리케이션이 기능이 많아지고 로직이 추가되기 시작할 때 발생한다. 로직이 복잡해지면 컨트롤러-서비스-DAO 구조의 코드도 함께 복잡해지는 경향이 있따. 특정 기능을 분석할 때 시간이 오래 걸리기도 하고, **중요한 로직을 구현한 코드가 DAO, 서비스 등에 흩어지기도 한다. 또한 중복된 쿼리나 중복된 로직 코드가 늘어나기도 한다**.
 >
 > 웹 애플리케이션이 복잡해지고 커지면서 코드도 함께 복잡해지는 문제를 완화하는 방법 중 하나는 도메인 주도 설계를 적용하는 것이다. **도메인 주도 설계는 컨트롤러-서비스-DAO 구조 대신에 UI-서비스-도메인-인프라의 네 영역으로 애플리케이션을 구성한다**. 여기서 UI는 컨트롤러 영역에 대응하고 인프라는 DAO 영역에 대응한다. **중요한 점은 주요한 도메인 모델과 업무 로직이 서비스 영역이 아닌 도메인 영역에 위치한다는 것이다**. 또한 도메인 영역은 정해진 패턴에 따라 모델을 구현한다. 이를 통해 업무가 복잡해져도 일정 수준의 복잡도로 코드를 유지할 수 있도록 해 준다.
 
